@@ -1,0 +1,22 @@
+#!/bin/sh
+
+if [ -z "$*" ]; then
+    echo "Укажите пути к systemd юнитам после имени скрипта, например:\n$0 /etc/systemd/system/rocketchat*.service"
+    exit 1
+fi
+
+echo -n \
+$(echo -n "{\"data\":["
+for unit in $*; do
+    echo -n "{\"{#ROCKET_CHAT_UNIT}\":\"$unit\","
+    awk -v ORS="" 'BEGIN { IGNORECASE = 1; } /(Description|ExecStart|SyslogIdentifier|Environment=PORT|Environment=ROOT_URL)/ {
+         split($0,val,"=");
+         if (val[1] ~ /Environment/) {
+             gsub("https?://","",val[3]);
+             print("\"{#ROCKET_CHAT_"toupper(val[2])"}\":\""val[3]"\",")
+         } else {
+             print("\"{#ROCKET_CHAT_"toupper(val[1])"}\":\""val[2]"\",")
+         }
+         } END { print("},") } ' $unit | sed -e 's/,}/}/'
+done
+echo -n "]}") | sed 's/,]}$/]}/'
